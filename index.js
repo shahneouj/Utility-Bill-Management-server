@@ -34,6 +34,7 @@ async function run() {
     const billCollection = db.collection("bills");
 
     // all the routes
+    // Get all bills
     app.get("/bills", async (req, res) => {
       try {
         const query = {};

@@ -57,5 +57,5 @@ async function run() {
 }
 run().catch(console.dir);
 app.listen(port, () => {
-  console.log(`Movie Master Pro app listening on port ${port}`);
+  console.log(`app listening on port ${port}`);
 });

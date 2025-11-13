@@ -30,6 +30,7 @@ async function run() {
     const db = client.db("bill_db");
     const billCollection = db.collection("bills");
     const paidCollection = db.collection("paid_bills");
+    const userCollection = db.collection("users");
     // all the routes
     // Get all bills
     app.get("/bills", async (req, res) => {
@@ -110,6 +111,17 @@ async function run() {
         res.status(200).send(result);
       } catch (error) {
         console.error("Error deleting bill:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.post("/user", async (req, res) => {
+      try {
+        const user = req.body;
+        const result = await userCollection.insertOne(user);
+        res.status(201).send(result);
+      } catch (error) {
+        console.error("Error creating user:", error);
         res.status(500).send("Internal Server Error");
       }
     });

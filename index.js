@@ -89,7 +89,7 @@ async function run() {
       }
     });
 
-    app.put("/payment/:id", async (req, res) => {
+    app.patch("/payment/:id", async (req, res) => {
       try {
         const id = req.params.id;
         const bill = req.body;

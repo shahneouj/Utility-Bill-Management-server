@@ -2,16 +2,13 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const app = express();
+const { ObjectId } = require("mongodb");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const port = process.env.PORT || 3000;
 
 // middleware
 app.use(cors());
 app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.send("Movie Master Pro Server is running");
-});
 //mongodb
 const uri = process.env.MONGODB_URL;
 
@@ -32,20 +29,80 @@ async function run() {
     //connect to the collection
     const db = client.db("bill_db");
     const billCollection = db.collection("bills");
-
+    const paidCollection = db.collection("paid_bills");
     // all the routes
     // Get all bills
     app.get("/bills", async (req, res) => {
       try {
+        const { category, limit } = req.query;
+        const count = await billCollection.countDocuments();
+        const total = parseInt(limit) || count;
+        // Build query object dynamically
         const query = {};
-        const cursor = billCollection.find(query);
+        if (category) {
+          query.category = category; // only filter by category if provided
+        }
+        const cursor = billCollection.find(query).limit(total);
         const result = await cursor.toArray();
-        res.send(result);
+        res.status(200).send(result);
       } catch (error) {
         console.error("Error fetching bills:", error);
         res.status(500).send("Internal Server Error");
       }
     });
+    app.get("/bills/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const bill = await billCollection.findOne(query);
+
+        if (!bill) {
+          return res.status(404).send({ message: "Bill not found" });
+        }
+
+        res.send(bill);
+      } catch (error) {
+        console.error("Error fetching bill:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.post("/payment", async (req, res) => {
+      try {
+        const bill = req.body;
+        const result = await paidCollection.insertOne(bill);
+        res.status(201).send(result);
+      } catch (error) {
+        console.error("Error creating bill:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.put("/payment/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const bill = req.body;
+        const query = { _id: new ObjectId(id) };
+        const result = await paidCollection.updateOne(query, { $set: bill });
+        res.status(200).send(result);
+      } catch (error) {
+        console.error("Error updating bill:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    app.delete("/payment/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await paidCollection.deleteOne(query);
+        res.status(200).send(result);
+      } catch (error) {
+        console.error("Error deleting bill:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(

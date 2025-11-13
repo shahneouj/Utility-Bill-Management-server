@@ -66,6 +66,17 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
+    app.get("/payment", async (req, res) => {
+      try {
+        const query = {};
+        const cursor = paidCollection.find(query);
+        const result = await cursor.toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        console.error("Error fetching payments:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
 
     app.post("/payment", async (req, res) => {
       try {

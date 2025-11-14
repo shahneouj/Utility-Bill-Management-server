@@ -5,10 +5,35 @@ const app = express();
 const { ObjectId } = require("mongodb");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const port = process.env.PORT || 3000;
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./bill-firebase-key.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 // middleware
 app.use(cors());
 app.use(express.json());
+// custom middleware
+const validationToken = async (req, res, next) => {
+  const authorization = req.headers.authorization; // console.log(req.headers);
+  // console.log(authorization);
+  if (!authorization) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  const token = authorization.split(" ")[1];
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.token_email = decoded.email;
+    // console.log('decode email',decoded);
+    next();
+  } catch (error) {
+    console.error("Token verification error:", error.message);
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+};
 //mongodb
 const uri = process.env.MONGODB_URL;
 
@@ -33,6 +58,9 @@ async function run() {
     const userCollection = db.collection("users");
     // all the routes
     // Get all bills
+    app.get("/test", validationToken, (req, res) => {
+      res.send(req.headers);
+    });
     app.get("/bills", async (req, res) => {
       try {
         const { category, limit } = req.query;
@@ -43,6 +71,7 @@ async function run() {
         if (category) {
           query.category = category; // only filter by category if provided
         }
+
         const cursor = billCollection.find(query).limit(total);
         const result = await cursor.toArray();
         res.status(200).send(result);
@@ -51,7 +80,7 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
-    app.get("/bills/:id", async (req, res) => {
+    app.get("/bills/:id", validationToken, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -67,9 +96,9 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
-    app.get("/payment", async (req, res) => {
+    app.get("/payment", validationToken, async (req, res) => {
       try {
-        const query = {};
+        const query = { email: req.token_email };
         const cursor = paidCollection.find(query);
         const result = await cursor.toArray();
         res.status(200).send(result);
@@ -79,7 +108,7 @@ async function run() {
       }
     });
 
-    app.post("/payment", async (req, res) => {
+    app.post("/payment", validationToken, async (req, res) => {
       try {
         const bill = req.body;
         const result = await paidCollection.insertOne(bill);
@@ -118,6 +147,17 @@ async function run() {
     app.post("/user", async (req, res) => {
       try {
         const user = req.body;
+        const email = req.body.email;
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
+        }
+        const query = { email };
+        const existingUser = await userCollection.findOne(query);
+        if (existingUser) {
+          return res.send({
+            message: "User already exists. Do not need to insert again",
+          });
+        }
         const result = await userCollection.insertOne(user);
         res.status(201).send(result);
       } catch (error) {

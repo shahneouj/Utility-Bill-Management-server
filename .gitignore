@@ -1,3 +1,4 @@
 node_modules/
 .env
 bill-firebase-key.json
+.vercel
